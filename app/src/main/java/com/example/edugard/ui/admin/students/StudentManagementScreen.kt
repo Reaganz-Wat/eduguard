@@ -1,25 +1,38 @@
 package com.example.edugard.ui.admin.students
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +52,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -64,28 +81,55 @@ fun StudentManagementScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var showAddStudentSheet by remember { mutableStateOf(false) }
+    var showStudentActionsSheet by remember { mutableStateOf(false) }
+    var selectedStudentForActions by remember { mutableStateOf<Student?>(null) }
     var editingStudent by remember { mutableStateOf<Student?>(null) }
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val actionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+
+    // Show delete confirmation when in selection mode and items are selected
+    val showDeleteConfirm = state.isSelectionMode && state.selectedStudentIds.isNotEmpty()
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    editingStudent = null
-                    showAddStudentSheet = true
-                },
-                containerColor = BrownPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Student")
+            if (!state.isSelectionMode) {
+                FloatingActionButton(
+                    onClick = {
+                        editingStudent = null
+                        showAddStudentSheet = true
+                    },
+                    containerColor = BrownPrimary
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Student")
+                }
+            } else {
+                FloatingActionButton(
+                    onClick = {
+                        viewModel.deleteSelectedStudents()
+                    },
+                    containerColor = MaterialTheme.colorScheme.error
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete Selected")
+                }
             }
         }
     ) { padding ->
         BaseScreen(
-            title = "Manage Students",
+            title = if (state.isSelectionMode) {
+                "${state.selectedStudentIds.size} selected"
+            } else {
+                "Manage Students"
+            },
             showMenuButton = true,
             showProfilePhoto = true,
-            onMenuClick = onMenuClick,
+            onMenuClick = {
+                if (state.isSelectionMode) {
+                    viewModel.clearSelection()
+                } else {
+                    onMenuClick()
+                }
+            },
             onProfileClick = onProfileClick
         ) {
             if (state.students.isEmpty()) {
@@ -118,9 +162,19 @@ fun StudentManagementScreen(
                     items(state.students) { student ->
                         StudentCard(
                             student = student,
-                            onEdit = {
-                                editingStudent = student
-                                showAddStudentSheet = true
+                            isSelected = state.selectedStudentIds.contains(student.id),
+                            isSelectionMode = state.isSelectionMode,
+                            onCardClick = {
+                                if (state.isSelectionMode) {
+                                    viewModel.toggleStudentSelection(student.id)
+                                } else {
+                                    selectedStudentForActions = student
+                                    showStudentActionsSheet = true
+                                }
+                            },
+                            onLongPress = {
+                                viewModel.setSelectionMode(true)
+                                viewModel.toggleStudentSelection(student.id)
                             },
                             onDelete = {
                                 viewModel.deleteStudent(student.id)
@@ -131,6 +185,38 @@ fun StudentManagementScreen(
                 }
             }
         }
+    }
+
+    // Student Actions Bottom Sheet (Edit/Delete)
+    if (showStudentActionsSheet && selectedStudentForActions != null) {
+        StudentActionsBottomSheet(
+            student = selectedStudentForActions!!,
+            onDismiss = {
+                scope.launch {
+                    actionsSheetState.hide()
+                    showStudentActionsSheet = false
+                    selectedStudentForActions = null
+                }
+            },
+            onEdit = {
+                editingStudent = selectedStudentForActions
+                scope.launch {
+                    actionsSheetState.hide()
+                    showStudentActionsSheet = false
+                    selectedStudentForActions = null
+                    showAddStudentSheet = true
+                }
+            },
+            onDelete = {
+                viewModel.deleteStudent(selectedStudentForActions!!.id)
+                scope.launch {
+                    actionsSheetState.hide()
+                    showStudentActionsSheet = false
+                    selectedStudentForActions = null
+                }
+            },
+            sheetState = actionsSheetState
+        )
     }
 
     // Add/Edit Student Bottom Sheet
@@ -161,27 +247,92 @@ fun StudentManagementScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun StudentCard(
     student: Student,
-    onEdit: () -> Unit,
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    onCardClick: () -> Unit,
+    onLongPress: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = WhiteBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
+    var offsetX by remember { mutableStateOf(0f) }
+    val density = LocalDensity.current
+    val swipeThresholdDp = 200.dp
+    val swipeThreshold = -with(density) { swipeThresholdDp.toPx() }
+    val animatedOffset by animateDpAsState(
+        targetValue = with(density) { offsetX.toDp() },
+        animationSpec = tween(300),
+        label = "swipe"
+    )
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Swipe background (delete indicator)
+        if (offsetX < 0) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp)
+                    .background(MaterialTheme.colorScheme.error)
+                    .padding(16.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .offset(x = animatedOffset)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (offsetX < swipeThreshold && !isSelectionMode) {
+                                onDelete()
+                            }
+                            offsetX = 0f
+                        }
+                    ) { change, dragAmount ->
+                        if (!isSelectionMode) {
+                            offsetX += dragAmount
+                            offsetX = offsetX.coerceAtMost(0f).coerceAtLeast(swipeThreshold * 1.5f)
+                        }
+                    }
+                }
+                .combinedClickable(
+                    onClick = onCardClick,
+                    onLongClick = onLongPress
+                ),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected) BrownPrimary.copy(alpha = 0.2f) else WhiteBackground
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Selection checkbox
+                if (isSelectionMode) {
+                    Icon(
+                        imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.Person,
+                        contentDescription = if (isSelected) "Selected" else "Not selected",
+                        tint = if (isSelected) BrownPrimary else TextSecondary,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .padding(end = 12.dp)
+                    )
+                }
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = student.name,
@@ -194,57 +345,89 @@ fun StudentCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
-                }
 
-                Row {
-                    IconButton(onClick = onEdit) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "Edit",
-                            tint = BrownPrimary
+                            Icons.Default.Email,
+                            contentDescription = null,
+                            tint = TextSecondary,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .padding(end = 4.dp)
+                        )
+                        Text(
+                            text = student.email,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
                         )
                     }
-                    IconButton(onClick = onDelete) {
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.error
+                            Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = TextSecondary,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .padding(end = 4.dp)
+                        )
+                        Text(
+                            text = student.phoneNumber,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
                         )
                     }
                 }
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(8.dp))
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StudentActionsBottomSheet(
+    student: Student,
+    onDismiss: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    sheetState: androidx.compose.material3.SheetState
+) {
+    BaseBottomSheet(
+        title = student.name,
+        onDismiss = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column {
+            // Student Info
+            Text(
+                text = "${student.grade} • ${student.studentId}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Email,
-                    contentDescription = null,
-                    tint = TextSecondary,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = student.email,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
-            }
+            // Edit Button
+            BaseButton(
+                text = "EDIT",
+                onClick = onEdit,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Phone,
-                    contentDescription = null,
-                    tint = TextSecondary,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = student.phoneNumber,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
-            }
+            // Delete Button
+            BaseButton(
+                text = "DELETE",
+                onClick = onDelete,
+                backgroundColor = MaterialTheme.colorScheme.error,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

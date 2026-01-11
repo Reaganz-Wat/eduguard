@@ -11,6 +11,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.edugard.ui.admin.analytics.AnalyticsScreen
 import com.example.edugard.ui.admin.dashboard.AdminDashboardScreen
 import com.example.edugard.ui.admin.login.AdminLoginScreen
+import com.example.edugard.ui.admin.settings.SettingsScreen
 import com.example.edugard.ui.admin.students.StudentManagementScreen
 import com.example.edugard.ui.components.AppNavigationDrawer
 import kotlinx.coroutines.launch
@@ -150,6 +151,47 @@ fun AppNavigation(
                 }
             ) {
                 AnalyticsScreen(
+                    onMenuClick = {
+                        scope.launch {
+                            drawerState.open()
+                        }
+                    },
+                    onProfileClick = {
+                        // TODO: Navigate to profile
+                    },
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+        }
+
+        composable(Screen.Settings.route) {
+            val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+            val scope = rememberCoroutineScope()
+
+            AppNavigationDrawer(
+                drawerState = drawerState,
+                currentRoute = Screen.Settings.route,
+                onNavigate = { route ->
+                    scope.launch {
+                        drawerState.close()
+                    }
+                    navController.navigate(route) {
+                        popUpTo(Screen.AdminDashboard.route)
+                        launchSingleTop = true
+                    }
+                },
+                onLogout = {
+                    scope.launch {
+                        drawerState.close()
+                    }
+                    navController.navigate(Screen.AdminLogin.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            ) {
+                SettingsScreen(
                     onMenuClick = {
                         scope.launch {
                             drawerState.open()

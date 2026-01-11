@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -56,15 +59,15 @@ fun BaseScreen(
             .fillMaxSize()
             .background(backgroundColor)
     ) {
-        // Top bar with brown background and status bar padding
+        // Top bar with brown background that extends into status bar
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding(), // This prevents overlap with status bar
+            modifier = Modifier.fillMaxWidth(),
             color = BrownPrimary
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Menu or Back button

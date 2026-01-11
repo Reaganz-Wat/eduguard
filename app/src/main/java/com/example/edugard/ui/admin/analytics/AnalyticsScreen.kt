@@ -1,5 +1,6 @@
 package com.example.edugard.ui.admin.analytics
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -62,39 +67,27 @@ fun AnalyticsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // Chart Placeholder
+            // Chart
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(220.dp),
+                    .height(280.dp),
                 colors = CardDefaults.cardColors(containerColor = WhiteBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Chart",
-                            modifier = Modifier.size(64.dp),
-                            tint = BrownPrimary.copy(alpha = 0.3f)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Daily App Usage Chart",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = TextSecondary
-                        )
-                        Text(
-                            text = "Chart visualization coming soon",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
-                        )
-                    }
+                    Text(
+                        text = "Daily App Usage",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    DailyUsageChart()
                 }
             }
 
@@ -177,6 +170,93 @@ fun AnalyticsScreen(
 }
 
 @Composable
+fun DailyUsageChart() {
+    // Sample data for last 7 days
+    val dailyData = listOf(4.2f, 5.1f, 3.8f, 6.2f, 4.9f, 5.5f, 6.8f)
+    val maxValue = dailyData.maxOrNull() ?: 1f
+    val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val chartHeight = size.height - 40.dp.toPx()
+            val chartWidth = size.width - 40.dp.toPx()
+            val barWidth = chartWidth / dailyData.size / 1.5f
+            val spacing = chartWidth / dailyData.size
+
+            // Draw grid lines
+            drawContext.canvas.save()
+            val gridColor = TextSecondary.copy(alpha = 0.2f)
+            for (i in 0..4) {
+                val y = 20.dp.toPx() + (chartHeight / 4) * i
+                drawLine(
+                    color = gridColor,
+                    start = Offset(20.dp.toPx(), y),
+                    end = Offset(size.width - 20.dp.toPx(), y),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f))
+                )
+            }
+            drawContext.canvas.restore()
+
+            // Draw bars
+            dailyData.forEachIndexed { index, value ->
+                val barHeight = (value / maxValue) * chartHeight
+                val x = 20.dp.toPx() + spacing * index + (spacing - barWidth) / 2
+                val y = size.height - 20.dp.toPx() - barHeight
+
+                drawRoundRect(
+                    color = BrownPrimary,
+                    topLeft = Offset(x, y),
+                    size = Size(barWidth, barHeight),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                )
+            }
+        }
+
+        // Draw labels
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.Bottom as Alignment)
+                .padding(horizontal = 20.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            days.forEach { day ->
+                Text(
+                    text = day,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+
+    // Y-axis labels
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "${maxValue.toInt()}h",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary
+        )
+        Text(
+            text = "0h",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary
+        )
+    }
+}
+
+@Composable
 fun MetricCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
@@ -249,6 +329,95 @@ fun SummaryRow(label: String, value: String) {
         )
     }
 }
+
+//@Composable
+//fun DailyUsageChart() {
+//    // Sample data for last 7 days
+//    val dailyData = listOf(4.2f, 5.1f, 3.8f, 6.2f, 4.9f, 5.5f, 6.8f)
+//    val maxValue = dailyData.maxOrNull() ?: 1f
+//    val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+//
+//    Column {
+//        // Y-axis labels
+//        Row(
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
+//            horizontalArrangement = Arrangement.SpaceBetween
+//        ) {
+//            Text(
+//                text = "${maxValue.toInt()}h",
+//                style = MaterialTheme.typography.bodySmall,
+//                color = TextSecondary
+//            )
+//            Text(
+//                text = "0h",
+//                style = MaterialTheme.typography.bodySmall,
+//                color = TextSecondary
+//            )
+//        }
+//
+//        Box(
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .height(180.dp)
+//        ) {
+//            Canvas(modifier = Modifier.fillMaxSize()) {
+//                val chartHeight = size.height - 40.dp.toPx()
+//                val chartWidth = size.width - 40.dp.toPx()
+//                val barWidth = chartWidth / dailyData.size / 1.5f
+//                val spacing = chartWidth / dailyData.size
+//
+//                // Draw grid lines
+//                drawContext.canvas.save()
+//                val gridColor = TextSecondary.copy(alpha = 0.2f)
+//                for (i in 0..4) {
+//                    val y = 20.dp.toPx() + (chartHeight / 4) * i
+//                    drawLine(
+//                        color = gridColor,
+//                        start = Offset(20.dp.toPx(), y),
+//                        end = Offset(size.width - 20.dp.toPx(), y),
+//                        strokeWidth = 1.dp.toPx(),
+//                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f))
+//                    )
+//                }
+//                drawContext.canvas.restore()
+//
+//                // Draw bars
+//                dailyData.forEachIndexed { index, value ->
+//                    val barHeight = (value / maxValue) * chartHeight
+//                    val x = 20.dp.toPx() + spacing * index + (spacing - barWidth) / 2
+//                    val y = size.height - 20.dp.toPx() - barHeight
+//
+//                    drawRoundRect(
+//                        color = BrownPrimary,
+//                        topLeft = Offset(x, y),
+//                        size = Size(barWidth, barHeight),
+//                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+//                    )
+//                }
+//            }
+//
+//            // Draw labels
+//            Row(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .align(Alignment.Bottom)
+//                    .padding(horizontal = 20.dp, vertical = 4.dp),
+//                horizontalArrangement = Arrangement.SpaceBetween
+//            ) {
+//                days.forEach { day ->
+//                    Text(
+//                        text = day,
+//                        style = MaterialTheme.typography.bodySmall,
+//                        color = TextSecondary,
+//                        modifier = Modifier.weight(1f)
+//                    )
+//                }
+//            }
+//        }
+//    }
+//}
 
 @Preview(showBackground = true)
 @Composable

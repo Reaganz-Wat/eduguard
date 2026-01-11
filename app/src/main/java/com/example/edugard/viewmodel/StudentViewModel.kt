@@ -11,7 +11,9 @@ data class StudentState(
     val students: List<Student> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val selectedStudent: Student? = null
+    val selectedStudent: Student? = null,
+    val selectedStudentIds: Set<String> = emptySet(),
+    val isSelectionMode: Boolean = false
 )
 
 class StudentViewModel : ViewModel() {
@@ -96,5 +98,44 @@ class StudentViewModel : ViewModel() {
 
     fun clearError() {
         _state.update { it.copy(error = null) }
+    }
+
+    fun toggleStudentSelection(studentId: String) {
+        _state.update { currentState ->
+            val newSelection = currentState.selectedStudentIds.toMutableSet()
+            if (newSelection.contains(studentId)) {
+                newSelection.remove(studentId)
+            } else {
+                newSelection.add(studentId)
+            }
+            currentState.copy(
+                selectedStudentIds = newSelection,
+                isSelectionMode = newSelection.isNotEmpty()
+            )
+        }
+    }
+
+    fun clearSelection() {
+        _state.update { it.copy(selectedStudentIds = emptySet(), isSelectionMode = false) }
+    }
+
+    fun deleteSelectedStudents() {
+        _state.update { currentState ->
+            val idsToDelete = currentState.selectedStudentIds
+            currentState.copy(
+                students = currentState.students.filter { it.id !in idsToDelete },
+                selectedStudentIds = emptySet(),
+                isSelectionMode = false
+            )
+        }
+    }
+
+    fun setSelectionMode(enabled: Boolean) {
+        _state.update { currentState ->
+            currentState.copy(
+                isSelectionMode = enabled,
+                selectedStudentIds = if (!enabled) emptySet() else currentState.selectedStudentIds
+            )
+        }
     }
 }
