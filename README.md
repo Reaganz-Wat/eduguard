@@ -304,3 +304,6 @@ eduguard/
 ## License
 
 MIT License
+
+Author
+- Reaganz-Wat
