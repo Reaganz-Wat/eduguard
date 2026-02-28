@@ -306,4 +306,4 @@ eduguard/
 MIT License
 
 Author
-- Reaganz-Wat
+- Reaganz-Wat | DevOps Engineeer
